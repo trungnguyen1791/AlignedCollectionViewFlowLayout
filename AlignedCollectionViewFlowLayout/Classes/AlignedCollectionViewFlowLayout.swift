@@ -25,21 +25,16 @@
 //  THE SOFTWARE.
 //
 
-import UIKit
-
-
 // MARK: - 🦆 Type definitions
 
 /// An abstract protocol that defines an alignment.
 protocol Alignment {}
 
-/// Defines a horizontal alignment for UI elements.
+/// Defines an alignment for UI elements.
 public enum HorizontalAlignment: Alignment {
     case left
-    case right
-    case leading
-    case trailing
     case justified
+    case right
 }
 
 /// Defines a vertical alignment for UI elements.
@@ -47,14 +42,6 @@ public enum VerticalAlignment: Alignment {
     case top
     case center
     case bottom
-}
-
-/// A horizontal alignment used internally by `AlignedCollectionViewFlowLayout`
-/// to layout the items, after resolving layout direction specifics.
-private enum EffectiveHorizontalAlignment: Alignment {
-    case left
-    case right
-    case justified
 }
 
 /// Describes an axis with respect to which items can be aligned.
@@ -67,81 +54,38 @@ private struct AlignmentAxis<A: Alignment> {
     /// * If the `Alignment` is horizontal, the alignment axis is vertical and this is the position on the `x` axis.
     /// * If the `Alignment` is vertical, the alignment axis is horizontal and this is the position on the `y` axis.
     let position: CGFloat
+    
+    let sectionOverlay: CGFloat
 }
 
-
-
-// MARK: - Flow Layout
 
 /// A `UICollectionViewFlowLayout` subclass that gives you control
 /// over the horizontal and vertical alignment of the cells.
 /// You can use it to align the cells like words in a left- or right-aligned text
 /// and you can specify how the cells are vertically aligned in their row.
 open class AlignedCollectionViewFlowLayout: UICollectionViewFlowLayout {
-    
+    public var sectionOverlay: CGFloat = 0
     // MARK: - 🔶 Properties
     
     /// Determines how the cells are horizontally aligned in a row.
     /// - Note: The default is `.justified`.
     public var horizontalAlignment: HorizontalAlignment = .justified
-
+    
     /// Determines how the cells are vertically aligned in a row.
     /// - Note: The default is `.center`.
     public var verticalAlignment: VerticalAlignment = .center
-
-    /// The `horizontalAlignment` with its layout direction specifics resolved,
-    /// i.e. `.leading` and `.trailing` alignments are mapped to `.left` or `right`,
-    /// depending on the current layout direction.
-    fileprivate var effectiveHorizontalAlignment: EffectiveHorizontalAlignment {
-
-        var trivialMapping: [HorizontalAlignment: EffectiveHorizontalAlignment] {
-            return [
-                .left: .left,
-                .right: .right,
-                .justified: .justified
-            ]
-        }
-
-        let layoutDirection = UIApplication.shared.userInterfaceLayoutDirection
-
-        switch layoutDirection {
-        case .leftToRight:
-            switch horizontalAlignment {
-            case .leading:
-                return .left
-            case .trailing:
-                return .right
-            default:
-                break
-            }
-
-        case .rightToLeft:
-            switch horizontalAlignment {
-            case .leading:
-                return .right
-            case .trailing:
-                return .left
-            default:
-                break
-            }
-        }
-
-        // It's safe to force-unwrap as `.leading` and `.trailing` are covered
-        // above and the `trivialMapping` dictionary contains all other keys.
-        return trivialMapping[horizontalAlignment]!
-    }
     
     /// The vertical axis with respect to which the cells are horizontally aligned.
     /// For a `justified` alignment the alignment axis is not defined and this value is `nil`.
     fileprivate var alignmentAxis: AlignmentAxis<HorizontalAlignment>? {
-        switch effectiveHorizontalAlignment {
+        switch horizontalAlignment {
         case .left:
-            return AlignmentAxis(alignment: HorizontalAlignment.left, position: sectionInset.left)
+            return AlignmentAxis(alignment: HorizontalAlignment.left, position: sectionInset.left, sectionOverlay: sectionOverlay)
         case .right:
             guard let collectionViewWidth = collectionView?.frame.size.width else {
                 return nil
             }
-            return AlignmentAxis(alignment: HorizontalAlignment.right, position: collectionViewWidth - sectionInset.right)
+            return AlignmentAxis(alignment: HorizontalAlignment.right, position: collectionViewWidth - sectionInset.right, sectionOverlay: sectionOverlay)
         default:
             return nil
         }
@@ -226,6 +170,9 @@ open class AlignedCollectionViewFlowLayout: UICollectionViewFlowLayout {
         // We may not change the original layout attributes or UICollectionViewFlowLayout might complain.
         let layoutAttributesObjects = copy(super.layoutAttributesForElements(in: rect))
         layoutAttributesObjects?.forEach({ (layoutAttributes) in
+            if layoutAttributes.representedElementCategory == .cell {
+                layoutAttributes.zIndex = 999
+            }
             setFrame(forLayoutAttributes: layoutAttributes)
         })
         return layoutAttributesObjects
@@ -303,15 +250,15 @@ open class AlignedCollectionViewFlowLayout: UICollectionViewFlowLayout {
         switch verticalAlignment {
         case .top:
             let minY = layoutAttributes.reduce(CGFloat.greatestFiniteMagnitude) { min($0, $1.frame.minY) }
-            return AlignmentAxis(alignment: .top, position: minY)
+            return AlignmentAxis(alignment: .top, position: minY, sectionOverlay: sectionOverlay)
             
         case .bottom:
             let maxY = layoutAttributes.reduce(0) { max($0, $1.frame.maxY) }
-            return AlignmentAxis(alignment: .bottom, position: maxY)
+            return AlignmentAxis(alignment: .bottom, position: maxY, sectionOverlay: sectionOverlay)
             
         default:
             let centerY = firstAttribute.center.y
-            return AlignmentAxis(alignment: .center, position: centerY)
+            return AlignmentAxis(alignment: .center, position: centerY, sectionOverlay: sectionOverlay)
         }
     }
     
@@ -334,7 +281,6 @@ open class AlignedCollectionViewFlowLayout: UICollectionViewFlowLayout {
     }
     
 }
-
 
 
 // MARK: - 👷 Layout attributes helpers
@@ -415,7 +361,7 @@ fileprivate extension UICollectionViewLayoutAttributes {
     func align(toAlignmentAxis alignmentAxis: AlignmentAxis<VerticalAlignment>) {
         switch alignmentAxis.alignment {
         case .top:
-            frame.origin.y = alignmentAxis.position
+            frame.origin.y = alignmentAxis.position + alignmentAxis.sectionOverlay
         case .bottom:
             frame.origin.y = alignmentAxis.position - frame.size.height
         default:
@@ -457,7 +403,7 @@ fileprivate extension UICollectionViewLayoutAttributes {
             return
         }
         
-        switch collectionViewLayout.effectiveHorizontalAlignment {
+        switch collectionViewLayout.horizontalAlignment {
             
         case .left:
             if isRepresentingFirstItemInLine(collectionViewLayout: collectionViewLayout) {
