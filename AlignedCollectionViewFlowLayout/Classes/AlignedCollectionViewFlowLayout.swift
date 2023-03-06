@@ -166,12 +166,24 @@ open class AlignedCollectionViewFlowLayout: UICollectionViewFlowLayout {
         return layoutAttributes
     }
     
+     open override func layoutAttributesForSupplementaryView(ofKind elementKind: String, at indexPath: IndexPath) -> UICollectionViewLayoutAttributes? {
+        let attributes = super.layoutAttributesForSupplementaryView(ofKind: elementKind, at: indexPath)
+        if attributes?.representedElementKind == UICollectionView.elementKindSectionFooter {
+            attributes?.zIndex = 100
+            //Modify zIndex here to support footer sticky
+        }
+        
+        return attributes
+    }
+    
     override open func layoutAttributesForElements(in rect: CGRect) -> [UICollectionViewLayoutAttributes]? {
         // We may not change the original layout attributes or UICollectionViewFlowLayout might complain.
         let layoutAttributesObjects = copy(super.layoutAttributesForElements(in: rect))
         layoutAttributesObjects?.forEach({ (layoutAttributes) in
             if layoutAttributes.representedElementCategory == .cell {
-                layoutAttributes.zIndex = 999
+                layoutAttributes.zIndex = 50 //Modify zIndex here to support cell overlay header.
+            }else if layoutAttributes.representedElementKind == UICollectionView.elementKindSectionFooter {
+                layoutAttributes.zIndex = 100 //Modify zIndex here to support footer sticky
             }
             setFrame(forLayoutAttributes: layoutAttributes)
         })
