@@ -63,6 +63,11 @@ private struct AlignmentAxis<A: Alignment> {
 /// over the horizontal and vertical alignment of the cells.
 /// You can use it to align the cells like words in a left- or right-aligned text
 /// and you can specify how the cells are vertically aligned in their row.
+///
+public protocol AlignedCollectionViewFlowLayoutDelegate: class {
+    func shouldOverrideInsetForItemAt(index: IndexPath) -> Bool
+}
+
 open class AlignedCollectionViewFlowLayout: UICollectionViewFlowLayout {
     public var sectionOverlay: CGFloat = 0
     // MARK: - 🔶 Properties
@@ -99,7 +104,7 @@ open class AlignedCollectionViewFlowLayout: UICollectionViewFlowLayout {
         return collectionViewWidth - sectionInset.left - sectionInset.right
     }
     
-    
+    public weak var customDelegate: AlignedCollectionViewFlowLayoutDelegate?
     // MARK: - 👶 Initialization
     
     /// The designated initializer.
@@ -171,6 +176,7 @@ open class AlignedCollectionViewFlowLayout: UICollectionViewFlowLayout {
         if attributes?.representedElementKind == UICollectionView.elementKindSectionFooter {
             attributes?.zIndex = 100
             //Modify zIndex here to support footer sticky
+            print("Footer \(attributes?.frame.debugDescription)")
         }
         
         return attributes
@@ -189,8 +195,6 @@ open class AlignedCollectionViewFlowLayout: UICollectionViewFlowLayout {
         })
         return layoutAttributesObjects
     }
-    
-    
     // MARK: - 👷 Private layout helpers
     
     /// Sets the frame for the passed layout attributes object by calling the `layoutAttributesForItem(at:)` function.
@@ -261,7 +265,10 @@ open class AlignedCollectionViewFlowLayout: UICollectionViewFlowLayout {
         
         switch verticalAlignment {
         case .top:
-            let minY = layoutAttributes.reduce(CGFloat.greatestFiniteMagnitude) { min($0, $1.frame.minY) }
+            let filteredLayoutAttributes = layoutAttributes.filter { layoutAttribute in
+                   return layoutAttribute.representedElementCategory == .cell
+            }
+            let minY = filteredLayoutAttributes.reduce(CGFloat.greatestFiniteMagnitude) { min($0, $1.frame.minY) }
             return AlignmentAxis(alignment: .top, position: minY, sectionOverlay: sectionOverlay)
             
         case .bottom:
@@ -415,11 +422,19 @@ fileprivate extension UICollectionViewLayoutAttributes {
             return
         }
         
+        
         switch collectionViewLayout.horizontalAlignment {
             
         case .left:
             if isRepresentingFirstItemInLine(collectionViewLayout: collectionViewLayout) {
-                align(toAlignmentAxis: alignmentAxis)
+                let borderless = collectionViewLayout.customDelegate?.shouldOverrideInsetForItemAt(index: indexPath) ?? false
+                if borderless {
+                    let axis = AlignmentAxis(alignment: alignmentAxis.alignment, position: 0, sectionOverlay: alignmentAxis.sectionOverlay)
+                    align(toAlignmentAxis: axis)
+                }else {
+                    align(toAlignmentAxis: alignmentAxis)
+                }
+                
             } else {
                 alignToPrecedingItem(collectionViewLayout: collectionViewLayout)
             }
