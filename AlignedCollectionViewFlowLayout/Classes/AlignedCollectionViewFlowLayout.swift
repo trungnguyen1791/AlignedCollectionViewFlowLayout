@@ -66,6 +66,7 @@ private struct AlignmentAxis<A: Alignment> {
 ///
 public protocol AlignedCollectionViewFlowLayoutDelegate: class {
     func shouldOverrideInsetForItemAt(index: IndexPath) -> Bool
+    func spacingForRowAt(index: IndexPath) -> CGFloat?
 }
 
 open class AlignedCollectionViewFlowLayout: UICollectionViewFlowLayout {
@@ -176,7 +177,7 @@ open class AlignedCollectionViewFlowLayout: UICollectionViewFlowLayout {
         if attributes?.representedElementKind == UICollectionView.elementKindSectionFooter {
             attributes?.zIndex = 100
             //Modify zIndex here to support footer sticky
-            print("Footer \(attributes?.frame.debugDescription)")
+//            print("Footer \(attributes?.frame.debugDescription)")
         }
         
         return attributes
@@ -393,8 +394,7 @@ fileprivate extension UICollectionViewLayoutAttributes {
     ///
     /// - Parameter collectionViewLayout: The layout on which to perfom the calculations.
     private func alignToPrecedingItem(collectionViewLayout: AlignedCollectionViewFlowLayout) {
-        let itemSpacing = collectionViewLayout.minimumInteritemSpacing
-        
+        let itemSpacing = collectionViewLayout.customDelegate?.spacingForRowAt(index: indexPath) ?? collectionViewLayout.minimumInteritemSpacing
         if let precedingItemAttributes = collectionViewLayout.layoutAttributesForItem(at: precedingIndexPath) {
             frame.origin.x = precedingItemAttributes.frame.maxX + itemSpacing
         }
@@ -405,8 +405,7 @@ fileprivate extension UICollectionViewLayoutAttributes {
     ///
     /// - Parameter collectionViewLayout: The layout on which to perfom the calculations.
     private func alignToFollowingItem(collectionViewLayout: AlignedCollectionViewFlowLayout) {
-        let itemSpacing = collectionViewLayout.minimumInteritemSpacing
-        
+        let itemSpacing = collectionViewLayout.customDelegate?.spacingForRowAt(index: indexPath) ?? collectionViewLayout.minimumInteritemSpacing
         if let followingItemAttributes = collectionViewLayout.layoutAttributesForItem(at: followingIndexPath) {
             frame.origin.x = followingItemAttributes.frame.minX - itemSpacing - frame.size.width
         }
