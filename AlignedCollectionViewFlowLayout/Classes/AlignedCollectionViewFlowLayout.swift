@@ -188,7 +188,11 @@ open class AlignedCollectionViewFlowLayout: UICollectionViewFlowLayout {
         let layoutAttributesObjects = copy(super.layoutAttributesForElements(in: rect))
         layoutAttributesObjects?.forEach({ (layoutAttributes) in
             if layoutAttributes.representedElementCategory == .cell {
-                layoutAttributes.zIndex = 50 //Modify zIndex here to support cell overlay header.
+                if sectionHeadersPinToVisibleBounds {
+                    layoutAttributes.zIndex = 0
+                }else {
+                    layoutAttributes.zIndex = 50 //Modify zIndex here to support cell overlay header.
+                }
             }else if layoutAttributes.representedElementKind == UICollectionView.elementKindSectionFooter {
                 layoutAttributes.zIndex = 100 //Modify zIndex here to support footer sticky
             }
